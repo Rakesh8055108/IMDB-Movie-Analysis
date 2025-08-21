@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IMDb Movie Analysis Dashboard</title>
+    <link rel="stylesheet" href="movie.css">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+    <script src="movie.js" defer></script>
+    <style>
+        /* Inline minimal fallback if CSS fails to load */
+        .no-css-fallback { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; padding: 1rem; }
+    </style>
+    <noscript>
+        <style>
+            .requires-js { display: none !important; }
+        </style>
+    </noscript>
+    <meta name="description" content="Interactive EDA of IMDb-style movie dataset: genres, ratings, revenue, runtime, and years.">
+    <meta name="referrer" content="no-referrer">
+    <link rel="icon" href="data:,">
+    <meta http-equiv="Permissions-Policy" content="interest-cohort=()">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#111827">
+</head>
+<body>
+    <header class="app-header">
+        <div class="container">
+            <h1>IMDb Movie Analysis</h1>
+            <p class="subtitle">Explore genres, ratings, revenue, runtime, and release years</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="controls requires-js" aria-labelledby="controls-title">
+            <h2 id="controls-title">Controls</h2>
+            <div class="controls-grid">
+                <div class="control">
+                    <label for="csvFile">Upload CSV</label>
+                    <input type="file" id="csvFile" accept=".csv">
+                    <button id="useSample" class="btn">Use sample data</button>
+                </div>
+                <div class="control">
+                    <label>Year range</label>
+                    <div class="range-row">
+                        <input type="number" id="yearMin" placeholder="Min" aria-label="Min year">
+                        <span class="range-sep">to</span>
+                        <input type="number" id="yearMax" placeholder="Max" aria-label="Max year">
+                    </div>
+                </div>
+                <div class="control">
+                    <label for="minVotes">Min votes</label>
+                    <input type="number" id="minVotes" value="0" min="0" step="100">
+                </div>
+                <div class="control">
+                    <label>Genres</label>
+                    <div id="genreChips" class="chips"></div>
+                </div>
+                <div class="control">
+                    <label for="searchTitle">Search title</label>
+                    <input type="text" id="searchTitle" placeholder="e.g., Inception">
+                </div>
+                <div class="control align-end">
+                    <button id="resetFilters" class="btn btn-secondary">Reset filters</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="metrics requires-js" aria-labelledby="metrics-title">
+            <h2 id="metrics-title" class="sr-only">Metrics</h2>
+            <div class="metric-grid">
+                <div class="metric-card"><div class="metric-label">Movies</div><div id="metricMovies" class="metric-value">0</div></div>
+                <div class="metric-card"><div class="metric-label">Avg Rating</div><div id="metricRating" class="metric-value">0</div></div>
+                <div class="metric-card"><div class="metric-label">Avg Revenue (M)</div><div id="metricRevenue" class="metric-value">0</div></div>
+                <div class="metric-card"><div class="metric-label">Avg Runtime (min)</div><div id="metricRuntime" class="metric-value">0</div></div>
+            </div>
+        </section>
+
+        <section class="charts requires-js" aria-labelledby="charts-title">
+            <h2 id="charts-title">Visualizations</h2>
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Average Rating by Genre</h3>
+                    </div>
+                    <canvas id="chartGenreRating" height="160"></canvas>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Average Rating by Year</h3>
+                    </div>
+                    <canvas id="chartYearRating" height="160"></canvas>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Runtime Distribution</h3>
+                    </div>
+                    <canvas id="chartRuntimeHist" height="160"></canvas>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Revenue vs Rating</h3>
+                    </div>
+                    <canvas id="chartRevenueScatter" height="160"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section class="table-section requires-js" aria-labelledby="table-title">
+            <div class="table-header">
+                <h2 id="table-title">Top Rated Movies</h2>
+                <div class="table-actions">
+                    <label for="topN">Show top</label>
+                    <select id="topN">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                    </select>
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <table class="data-table" aria-describedby="table-title">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Year</th>
+                            <th>Genres</th>
+                            <th>Rating</th>
+                            <th>Votes</th>
+                            <th>Revenue (M)</th>
+                            <th>Runtime (min)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="topTableBody">
+                        <tr><td colspan="7" class="no-css-fallback">Load a CSV or click "Use sample data"</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer class="app-footer">
+        <div class="container small">
+            <p>Built with <a href="https://pandas.pydata.org/" target="_blank" rel="noreferrer">Pandas</a>-style EDA concepts and rendered via <a href="https://www.chartjs.org/" target="_blank" rel="noreferrer">Chart.js</a>. CSV parsing by <a href="https://www.papaparse.com/" target="_blank" rel="noreferrer">PapaParse</a>.</p>
+        </div>
+    </footer>
+</body>
+</html>
